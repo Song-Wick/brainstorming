@@ -139,6 +139,18 @@ if st.session_state.last_mode != mode:
     st.session_state.transcript = None
     st.session_state.last_mode = mode
 
+# 사이드바 회의록 다운로드 버튼 추가
+if st.session_state.transcript:
+    st.sidebar.divider()
+    st.sidebar.subheader("📥 결과 다운로드")
+    st.sidebar.download_button(
+        label="📝 회의록 다운로드 (Markdown)",
+        data=st.session_state.transcript,
+        file_name=f"{'sv' if '실리콘밸리' in mode else 'mck'}_strategy_transcript.md",
+        mime="text/markdown"
+    )
+
+
 # 타이틀 및 인트로 영역
 if mode == "🚀 실리콘밸리식 10단계 브레인스토밍":
     st.markdown("""
@@ -243,7 +255,7 @@ else:
 # 메인 화면: 주제 입력
 topic = st.text_input(
     "브레인스토밍 및 전략 수립할 핵심 질문이나 주제를 입력하세요.", 
-    value="여기에 질문 또는 주제를 입력하세요",
+    value="학술정보관·민주광장 통합 메가 플라자(Mega-Plaza) 구축 시 4대 가치 창출 방안",
     help="구체적인 맥락(대상 이용자, 목표, 제한 조건)을 포함하면 더욱 심도 깊은 결과가 나옵니다."
 )
 
@@ -424,17 +436,3 @@ if st.session_state.transcript:
                         """,
                         unsafe_allow_html=True
                     )
-
-# sidebar에 소스 코드 다운로드 추가
-try:
-    with open(__file__, "r", encoding="utf-8") as f:
-        self_code = f.read()
-    st.sidebar.divider()
-    st.sidebar.download_button(
-        label="📦 대시보드 코드 다운로드",
-        data=self_code,
-        file_name="brainstorming.py",
-        mime="text/plain"
-    )
-except Exception:
-    pass
