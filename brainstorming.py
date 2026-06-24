@@ -83,17 +83,6 @@ html, body, [class*="css"] {
     line-height: 1.35;
 }
 
-/* 회의록 출력 스타일 */
-.transcript-box {
-    background-color: #ffffff;
-    padding: 35px;
-    border-radius: 16px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-    margin-top: 20px;
-    line-height: 1.6;
-}
-
 /* 구분선 데코레이션 */
 .stDivider {
     margin-top: 2rem;
@@ -117,8 +106,8 @@ def get_gemini_api_key():
     return api_key.strip()
 
 
-# 사이드바 설정
-st.sidebar.image("https://img.icons8.com/clouds/100/000000/brainstorming.png", width=80)
+# 사이드바 설정 (깨지는 외부 이미지 링크 대신, 네트워크 환경에 지장 없는 세련된 이모지 로고 적용)
+st.sidebar.markdown("<h1 style='text-align: center; margin-bottom: 1rem; font-size: 4.5rem;'>🧠</h1>", unsafe_allow_html=True)
 st.sidebar.title("🛠️ 설정 패널")
 
 # 모드 선택
@@ -371,8 +360,10 @@ if st.session_state.transcript:
     st.subheader("📝 심층 브레인스토밍/전략 수립 회의록")
     
     # 다운로드 버튼 제공
-    st.download_button(
-        label="📥 회의록 다운로드 (Markdown)",
+    st.sidebar.divider()
+    st.sidebar.subheader("📥 결과 다운로드")
+    st.sidebar.download_button(
+        label="📝 회의록 다운로드 (Markdown)",
         data=st.session_state.transcript,
         file_name=f"{'sv' if '실리콘밸리' in mode else 'mck'}_strategy_transcript.md",
         mime="text/markdown"
@@ -382,31 +373,19 @@ if st.session_state.transcript:
     view_option = st.radio("보기 옵션 선택", ["📑 전체 회의록 한눈에 보기", "🗂️ 레벨별로 나누어 보기"], horizontal=True)
     
     if view_option == "📑 전체 회의록 한눈에 보기":
-        st.markdown(
-            f"""
-            <div class="transcript-box">
-                {st.session_state.transcript}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        # HTML 태그 내부에 마크다운을 넣어 발생하는 파싱 깨짐 방지를 위해 Streamlit 기본 container(border=True) 사용
+        with st.container(border=True):
+            st.markdown(st.session_state.transcript)
     else:
         # 정규식을 이용해 각 레벨 파싱
-        # 패턴: Level 1부터 10까지 헤더 추출
         pattern = r'(###\s*\[?Level\s*(?:10|[1-9])\]?:?\s*[^\n]*)'
         parts = re.split(pattern, st.session_state.transcript)
         
         if len(parts) <= 1:
             # 파싱이 안 된 경우 일반 출력으로 폴백
             st.warning("레벨별 자동 파싱에 실패했습니다. 전체 회의록 모드로 확인해 주세요.")
-            st.markdown(
-                f"""
-                <div class="transcript-box">
-                    {st.session_state.transcript}
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+            with st.container(border=True):
+                st.markdown(st.session_state.transcript)
         else:
             intro = parts[0].strip()
             if intro:
@@ -428,11 +407,6 @@ if st.session_state.transcript:
             for idx, (title, content) in enumerate(levels):
                 with tabs[idx]:
                     st.markdown(f"### {title}")
-                    st.markdown(
-                        f"""
-                        <div style="background-color: #f8fafc; padding: 25px; border-radius: 12px; border-left: 5px solid #0070F3; margin-top: 15px; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
-                            {content}
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                    # HTML div 내에 마크다운이 들어가 발생하는 </div> 태그 노출 방지를 위해 container(border=True) 사용
+                    with st.container(border=True):
+                        st.markdown(content)
