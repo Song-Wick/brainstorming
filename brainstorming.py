@@ -185,7 +185,9 @@ def call_gemini(api_key, prompt, json_mode=False, temperature=0.7):
     config = {'temperature': temperature, 'max_output_tokens': LIB_MAX_OUTPUT_TOKENS}
     if json_mode:
         config['response_mime_type'] = 'application/json'
-    response = make_gemini_client(api_key).models.generate_content(model=LIB_MODEL, contents=prompt, config=config)
+    # 클라이언트를 변수에 담아 둠: 임시 객체로 쓰면 요청 도중 정리되며 연결이 닫힘
+    client = make_gemini_client(api_key)
+    response = client.models.generate_content(model=LIB_MODEL, contents=prompt, config=config)
     text = getattr(response, "text", None)
     if not text:
         raise ValueError("Gemini 응답이 비어 있습니다.")
@@ -194,7 +196,8 @@ def call_gemini(api_key, prompt, json_mode=False, temperature=0.7):
 
 def stream_gemini(api_key, prompt, temperature=0.7):
     config = {'temperature': temperature, 'max_output_tokens': LIB_MAX_OUTPUT_TOKENS}
-    for chunk in make_gemini_client(api_key).models.generate_content_stream(model=LIB_MODEL, contents=prompt, config=config):
+    client = make_gemini_client(api_key)
+    for chunk in client.models.generate_content_stream(model=LIB_MODEL, contents=prompt, config=config):
         if getattr(chunk, "text", None):
             yield chunk.text
 
