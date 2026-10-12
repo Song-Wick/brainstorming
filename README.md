@@ -55,15 +55,16 @@ streamlit run brainstorming.py
 
 ### Gemini API 키 설정
 
-`.streamlit/secrets.toml` 파일을 만들고 키를 넣으세요. 이 파일은 `.gitignore`에 포함되어 있어 저장소에 올라가지 않습니다.
+키를 Secrets에 등록해 두면 사이드바의 **🔑 API 설정**에 "✅ Gemini API Key 자동 적용됨"이 표시되고 따로 입력할 필요가 없습니다.
+
+- **Streamlit Community Cloud에 배포한 경우:** 앱의 **Settings → Secrets**에 아래 내용을 넣으세요.
+- **내 컴퓨터에서 실행하는 경우:** 프로젝트 폴더에 `.streamlit/secrets.toml` 파일을 만들고 같은 내용을 넣으세요. 이 파일은 `.gitignore`에 포함되어 있어 저장소에 올라가지 않습니다.
 
 ```toml
 GEMINI_API_KEY = "여기에_API_키"
 ```
 
-secrets 파일이 없으면 앱 사이드바에서 직접 키를 입력할 수 있습니다.
-
-> ⚠️ 현재 실리콘밸리식·맥킨지/BCG식 모드는 키 입력란이 토론 시작 버튼을 누른 뒤에야 나타나서, 사이드바 입력 방식으로는 사용하기 어렵습니다. 이 두 모드를 쓸 때는 `secrets.toml`에 키를 넣어 주세요. 대학도서관 모드는 입력란이 처음부터 표시됩니다.
+Secrets에 키가 없으면 사이드바에 입력란이 나타납니다. 입력한 키는 브라우저 세션 동안 유지되며 모든 모드에서 사용됩니다.
 
 모든 모드는 **Gemini 2.5 Flash**(`gemini-2.5-flash`)를 사용합니다.
 

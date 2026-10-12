@@ -104,18 +104,32 @@ html, body, [class*="css"] {
 """, unsafe_allow_html=True)
 
 
-# API 키 획득 함수 (Secrets 우선, 없을 시 예외 처리하여 사이드바 입력창 유도)
-def get_gemini_api_key():
-    api_key = ""
+def get_secret_api_key():
     try:
-        api_key = st.secrets.get("GEMINI_API_KEY", "")
+        return st.secrets.get("GEMINI_API_KEY", "").strip()
     except Exception:
         # secrets.toml 파일 자체가 없을 때의 예외 처리
-        pass
-        
-    if not api_key:
-        api_key = st.sidebar.text_input("GEMINI_API_KEY 입력", type="password", help="Streamlit Secrets에 API 키가 없는 경우 직접 입력해 주세요.")
-    return api_key.strip()
+        return ""
+
+
+# API 키 획득 함수 (Secrets 우선, 없으면 사이드바에서 입력해 세션에 저장한 키 사용)
+def get_gemini_api_key():
+    return get_secret_api_key() or st.session_state.get("gemini_api_key", "").strip()
+
+
+def render_api_key_sidebar():
+    st.sidebar.markdown("### 🔑 API 설정")
+    if get_secret_api_key():
+        st.sidebar.success("✅ Gemini API Key 자동 적용됨 (보안 유지 중)")
+    else:
+        gemini_key_input = st.sidebar.text_input(
+            "Gemini API Key 입력",
+            type="password",
+            value=st.session_state.get("gemini_api_key", ""),
+            help="Streamlit Secrets에 API 키가 없는 경우 직접 입력해 주세요."
+        )
+        if gemini_key_input:
+            st.session_state["gemini_api_key"] = gemini_key_input
 
 
 # ========== [대학도서관 모드: 넓게 → 좁게 → 계획] ==========
@@ -566,6 +580,7 @@ def render_library_mode():
 # 사이드바 설정 (깨지는 외부 이미지 링크 대신, 네트워크 환경에 지장 없는 세련된 이모지 로고 적용)
 st.sidebar.markdown("<h1 style='text-align: center; margin-bottom: 1rem; font-size: 4.5rem;'>🧠</h1>", unsafe_allow_html=True)
 st.sidebar.title("🛠️ 설정 패널")
+render_api_key_sidebar()
 
 # 모드 선택
 mode = st.sidebar.selectbox(
