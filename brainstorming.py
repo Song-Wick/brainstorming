@@ -347,11 +347,23 @@ def build_plan_prompt(ctx, chosen_idea, chosen_score, evaluation_md, memo):
 #### 7. 시작 · 중단 · 계속 · 재검토할 것
 
 [규칙]
-1. 참여자들의 관점이 드러나도록 필요한 곳에 이모지와 역할명으로 짧은 발언을 넣으세요.
+1. 참여자들의 관점이 드러나도록 필요한 곳에 짧은 발언을 넣되, 실제 설문 인용과 구분되도록 반드시 `🎓 학부생 (가상 의견): "발언"` 형식으로 쓰세요.
 2. 수익 모델, 시장 규모, ROI 같은 비즈니스 용어 대신 공공·교육 기관의 언어를 쓰세요.
 3. 확인되지 않은 수치는 단정하지 말고 앞에 [가정]을 붙이세요.
 4. 제약 조건과 양보할 수 없는 조건을 어기는 계획을 세우지 마세요.
 """
+
+
+VIRTUAL_LABEL = "(가상 의견)"
+
+
+def label_virtual_remarks(text):
+    # 모델이 표시를 빠뜨려도 '🎓 학부생:' 같은 가상 팀원 발언에 '(가상 의견)'을 붙임 (이미 붙은 곳은 그대로)
+    for icon, name, _ in LIB_PERSONAS:
+        icon_pattern = re.escape(icon.replace("️", "")) + "️?"
+        pattern = rf"({icon_pattern}\s*{re.escape(name)})(\*\*)?\s*:"
+        text = re.sub(pattern, rf"\1 {VIRTUAL_LABEL}\2:", text)
+    return text
 
 
 def score_quadrant(score):
@@ -576,26 +588,26 @@ def render_library_mode():
         key="lib_in_memo3",
         placeholder="예: 다른 아이디어 '시험기간 야간 연장'과 결합해 주세요. 학생회와 함께 추진하고 싶습니다.",
     )
-    just_generated = False
     if st.button("🗺️ 실행 계획 만들기"):
         if not api_key:
             st.error("GEMINI_API_KEY를 설정해 주세요. (Streamlit secrets 또는 사이드바 수동 입력)")
         else:
             st.session_state.pop("lib_plan", None)
-            # 계획은 길어서 생성되는 대로 화면에 바로 보여 줌
-            with st.container(border=True):
-                try:
+            # 계획은 길어서 생성되는 대로 화면에 바로 보여 주고, 끝나면 '(가상 의견)' 표시를 붙인 본문으로 바꿔 그림
+            placeholder = st.empty()
+            try:
+                with placeholder.container(border=True):
                     plan = st.write_stream(stream_gemini(api_key, build_plan_prompt(
                         ctx, ideas_by_id[chosen_id], scores_by_id[chosen_id], evaluation["markdown"], plan_memo.strip()
                     )))
-                    if not plan:
-                        raise ValueError("Gemini 응답이 비어 있습니다.")
-                    st.session_state.lib_plan = plan
-                    just_generated = True
-                except Exception as e:
-                    st.error(f"계획 생성 중 오류가 발생했습니다: {e}")
+                if not plan:
+                    raise ValueError("Gemini 응답이 비어 있습니다.")
+                st.session_state.lib_plan = label_virtual_remarks(plan)
+                placeholder.empty()
+            except Exception as e:
+                st.error(f"계획 생성 중 오류가 발생했습니다: {e}")
 
-    if st.session_state.get("lib_plan") and not just_generated:
+    if st.session_state.get("lib_plan"):
         with st.container(border=True):
             st.markdown(st.session_state.lib_plan)
 
