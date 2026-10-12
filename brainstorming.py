@@ -7,7 +7,9 @@ from google import genai
 PAGE_TITLE = "🚀 SV & McKinsey Brainstorming Board"
 LIB_MODE = "📚 대학도서관 HMW 브레인스토밍 (넓게→좁게→계획)"
 LIB_MODEL = "gemini-2.5-flash"
-MATRIX_MIDPOINT = 3  # 2x2 매트릭스에서 이 점수 이상이면 영향력/노력이 '큼'
+LIB_MAX_OUTPUT_TOKENS = 16384  # 생각(thinking) 토큰도 포함되므로 여유 있게 설정
+LIB_TIMEOUT_MS = 180_000
+MATRIX_HIGH_SCORE = 4  # 2x2 매트릭스에서 이 점수 이상이면 영향력/노력이 '큼' (3점은 보통으로 보고 '작음' 쪽에 둠)
 # =================================
 
 # 페이지 설정
@@ -174,16 +176,27 @@ def reset_library_state(from_stage=1):
             st.session_state.pop(key, None)
 
 
+def make_gemini_client(api_key):
+    return genai.Client(api_key=api_key, http_options={'timeout': LIB_TIMEOUT_MS})
+
+
 def call_gemini(api_key, prompt, json_mode=False, temperature=0.7):
-    client = genai.Client(api_key=api_key)
-    config = {'temperature': temperature}
+    # 출력 상한을 두어 모델이 같은 내용을 반복하며 멈추지 않는 경우를 막음
+    config = {'temperature': temperature, 'max_output_tokens': LIB_MAX_OUTPUT_TOKENS}
     if json_mode:
         config['response_mime_type'] = 'application/json'
-    response = client.models.generate_content(model=LIB_MODEL, contents=prompt, config=config)
+    response = make_gemini_client(api_key).models.generate_content(model=LIB_MODEL, contents=prompt, config=config)
     text = getattr(response, "text", None)
     if not text:
         raise ValueError("Gemini 응답이 비어 있습니다.")
     return text
+
+
+def stream_gemini(api_key, prompt, temperature=0.7):
+    config = {'temperature': temperature, 'max_output_tokens': LIB_MAX_OUTPUT_TOKENS}
+    for chunk in make_gemini_client(api_key).models.generate_content_stream(model=LIB_MODEL, contents=prompt, config=config):
+        if getattr(chunk, "text", None):
+            yield chunk.text
 
 
 def parse_json_response(text):
@@ -339,8 +352,8 @@ def build_plan_prompt(ctx, chosen_idea, chosen_score, evaluation_md, memo):
 
 
 def score_quadrant(score):
-    high_impact = to_score(score.get("impact")) >= MATRIX_MIDPOINT
-    high_effort = to_score(score.get("effort")) >= MATRIX_MIDPOINT
+    high_impact = to_score(score.get("impact")) >= MATRIX_HIGH_SCORE
+    high_effort = to_score(score.get("effort")) >= MATRIX_HIGH_SCORE
     if high_impact and not high_effort:
         return "🎯 먼저 할 것 (영향 큼 · 노력 적음)"
     if high_impact:
@@ -381,7 +394,7 @@ def evaluation_to_markdown(evaluation, ideas_by_id):
     ]}
     for score in scores:
         quadrants[score_quadrant(score)].append(title(score.get("idea_id")))
-    lines += ["", f"#### 🔲 영향력 × 노력 2x2 ({MATRIX_MIDPOINT}점 이상을 '큼'으로 분류)"]
+    lines += ["", f"#### 🔲 영향력 × 노력 2x2 ({MATRIX_HIGH_SCORE}점 이상을 '큼'으로 분류)"]
     for name, items in quadrants.items():
         lines.append(f"- **{name}**: {', '.join(items) if items else '없음'}")
 
@@ -560,19 +573,26 @@ def render_library_mode():
         key="lib_in_memo3",
         placeholder="예: 다른 아이디어 '시험기간 야간 연장'과 결합해 주세요. 학생회와 함께 추진하고 싶습니다.",
     )
+    just_generated = False
     if st.button("🗺️ 실행 계획 만들기"):
         if not api_key:
             st.error("GEMINI_API_KEY를 설정해 주세요. (Streamlit secrets 또는 사이드바 수동 입력)")
         else:
-            with st.spinner("실행 계획을 세우고 있습니다..."):
+            st.session_state.pop("lib_plan", None)
+            # 계획은 길어서 생성되는 대로 화면에 바로 보여 줌
+            with st.container(border=True):
                 try:
-                    st.session_state.lib_plan = call_gemini(api_key, build_plan_prompt(
+                    plan = st.write_stream(stream_gemini(api_key, build_plan_prompt(
                         ctx, ideas_by_id[chosen_id], scores_by_id[chosen_id], evaluation["markdown"], plan_memo.strip()
-                    ))
+                    )))
+                    if not plan:
+                        raise ValueError("Gemini 응답이 비어 있습니다.")
+                    st.session_state.lib_plan = plan
+                    just_generated = True
                 except Exception as e:
                     st.error(f"계획 생성 중 오류가 발생했습니다: {e}")
 
-    if st.session_state.get("lib_plan"):
+    if st.session_state.get("lib_plan") and not just_generated:
         with st.container(border=True):
             st.markdown(st.session_state.lib_plan)
 
